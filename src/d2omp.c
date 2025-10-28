@@ -85,7 +85,6 @@ static void print_output(const int *arr, size_t n) {
 
 
 int main(void) {
-    printf("Coucou_0");
     long long n_input;
     if (scanf("%lld", &n_input) != 1) {
         fprintf(stderr, "Error: could not read n.\n");
@@ -96,7 +95,6 @@ int main(void) {
         return EXIT_FAILURE;
     }
     
-    printf("Coucou_1");
     size_t n = (size_t)n_input;
     int *arr = NULL, *tmp = NULL;
 
@@ -116,7 +114,6 @@ int main(void) {
             }
         }
     }
-    printf("Coucou_2");
     double t0 = omp_get_wtime();
 
     if (n > 1) {
