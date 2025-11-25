@@ -3,9 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
-
-
-#define CHUNK_SIZE 10000  // plus utilisé, mais tu peux le garder ou l'enlever
+#include <string.h>
 
 /* Lignes de commande */
 // mpicc d3-2.c -o d3-2
@@ -36,7 +34,6 @@ int main(int argc, char *argv[]) {
     }
     MPI_Bcast(&N, 1, MPI_LONG_LONG, 0, MPI_COMM_WORLD);
 
-    // Pas de couples sexy si N<8
     if (N < 8) {
         if (rank == 0) printf("Nombre de couples sexy <= %lld : 0\n", N);
         MPI_Finalize();
@@ -47,18 +44,26 @@ int main(int argc, char *argv[]) {
     long long global_start = 2;
     long long global_end   = N - 6;
     long long total_p = (global_end >= global_start)
-                        ? (global_end - global_start + 1)
-                        : 0;
+                            ? (global_end - global_start + 1)
+                            : 0;
 
     long long *intervals = NULL;
-    MPI_Win win_intervals;
+    long long *results   = NULL;
+    MPI_Win win_intervals, win_results;
 
     if (rank == 0) {
-        intervals = (long long *) malloc(2 * size * sizeof(long long));
+        MPI_Alloc_mem(2 * size * sizeof(long long), MPI_INFO_NULL, &intervals);
+        MPI_Win_create(intervals, 2 * size * sizeof(long long), sizeof(long long),
+                       MPI_INFO_NULL, MPI_COMM_WORLD, &win_intervals);
+
+        MPI_Alloc_mem(size * sizeof(long long), MPI_INFO_NULL, &results);
+        memset(results, 0, size * sizeof(long long)); // Initialise à zéro
+        MPI_Win_create(results, size * sizeof(long long), sizeof(long long),
+                       MPI_INFO_NULL, MPI_COMM_WORLD, &win_results);
+
         if (total_p == 0) {
-            // Intervalles vides pour tout le monde
             for (int r = 0; r < size; r++) {
-                intervals[2*r]     = 1;
+                intervals[2*r]       = 1;
                 intervals[2*r + 1] = 0;
             }
         } else {
@@ -75,51 +80,65 @@ int main(int argc, char *argv[]) {
                     intervals[2*r + 1] = e;
                     offset += count_r;
                 } else {
-                    // intervalle vide
                     intervals[2*r]     = 1;
                     intervals[2*r + 1] = 0;
                 }
             }
         }
+
+    } else {
+        MPI_Win_create(NULL, 0, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &win_intervals);
+        MPI_Win_create(NULL, 0, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &win_results);
     }
-    ---------------------------------------------------------------------
-        // Travail des ouvriers
-    else {
-        while (1) {
-            MPI_Send(NULL, 0, MPI_CHAR, 0, TAG_REQUEST, MPI_COMM_WORLD);
+    MPI_Win_fence(0, win_intervals);
+    MPI_Win_fence(0, win_results);
 
-            MPI_Status status;
-            long long interval[2];
+    long long local_count = 0;
+    long long s, e;
 
-            MPI_Recv(interval, 2, MPI_LONG_LONG, 0,
-                     MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    if (size > 1) {
+        MPI_Get(&s, 1, MPI_LONG_LONG, 0, 2*rank, 1, MPI_LONG_LONG, win_intervals);
+        MPI_Get(&e, 1, MPI_LONG_LONG, 0, 2*rank + 1, 1, MPI_LONG_LONG, win_intervals);
+    }
+    if (rank == 0) {
+        s = intervals[0];
+        e = intervals[1];
+    }
 
-            if (status.MPI_TAG == TAG_STOP) break;
+    MPI_Win_fence(0, win_intervals);
 
-            long long s = interval[0];
-            long long e = interval[1];
+    if (s <= e) {
+        for (long long p = s; p <= e; p++) {
+            long long q = p + 6;
+            if (q > N) continue;
 
-            for (long long p = s; p <= e; p++) {
-                long long q = p + 6;
-                if (q > N) continue;
-
-                if (isPrime(p) && isPrime(q)) {
-                    local_count++;
-                }
+            if (isPrime(p) && isPrime(q)) {
+                local_count++;
             }
         }
     }
 
-    // Récupération de la valeure finale
-    long long global_count = 0;
-    MPI_Reduce(&local_count, &global_count, 1, MPI_LONG_LONG,
-                MPI_SUM, 0, MPI_COMM_WORLD);
-
-    if (rank == 0) {
-        printf("Nombre de couples sexy <= %lld : %lld\n", N, global_count);
+    if (rank != 0) {
+        MPI_Put(&local_count, 1, MPI_LONG_LONG, 0, rank, 1, MPI_LONG_LONG, win_results);
     }
+
+    MPI_Win_fence(0, win_results);
+
+    long long global_count = 0;
+    if (rank == 0) {
+
+        for (int r = 0; r < size; r++) {
+            global_count += results[r];
+        }
+
+        printf("Nombre de couples sexy <= %lld : %lld\n", N, global_count);
+
+        MPI_Free_mem(intervals);
+        MPI_Free_mem(results);
+    }
+
+    MPI_Win_free(&win_results);
 
     MPI_Finalize();
     return 0;
-
 }
