@@ -26,10 +26,13 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    long long N = 0;
 
+
+    long long N = 0;
+    double start_time = 0.0;
     // Initialisation et diffusion de N du maître aux ouvriers
     if (rank == 0) {
+        start_time = MPI_Wtime();
         N = atoll(argv[1]);
     }
     MPI_Bcast(&N, 1, MPI_LONG_LONG, 0, MPI_COMM_WORLD);
@@ -139,6 +142,11 @@ int main(int argc, char *argv[]) {
 
     MPI_Win_free(&win_results);
 
+    MPI_Barrier(MPI_COMM_WORLD); // S'assure que tous les processus ont fini
+    if (rank == 0) {
+        double end_time = MPI_Wtime();
+        printf("Temps d'exécution : %f secondes\n", end_time - start_time);
+    }
     MPI_Finalize();
     return 0;
 }

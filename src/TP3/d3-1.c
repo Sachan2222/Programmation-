@@ -31,6 +31,12 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    double start_time = 0;
+    if (rank == 0) {
+        start_time = MPI_Wtime();
+    }
+
+
     long long N = 0;
 
     // Initialisation et diffusion de N du maître aux ouvriers
@@ -38,6 +44,32 @@ int main(int argc, char *argv[]) {
         N = atoll(argv[1]);
     }
     MPI_Bcast(&N, 1, MPI_LONG_LONG, 0, MPI_COMM_WORLD);
+
+    if (size == 1) {
+
+    double start_time = MPI_Wtime();  // ---- Début chrono ----
+
+    long long count = 0;
+
+    for (long long p = 2; p <= N - 6; p++) {
+        long long q = p + 6;
+        if (isPrime(p) && isPrime(q)) {
+            count++;
+        }
+    }
+
+    double end_time = MPI_Wtime();    // ---- Fin chrono ----
+
+    if (rank == 0) {
+        printf("Nombre de couples sexy <= %lld : %lld\n", N, count);
+        printf("Temps d'exécution (séquentiel) : %f secondes\n",
+               end_time - start_time);
+    }
+
+    MPI_Finalize();
+    return 0;}
+
+
 
     // Pas de couples sexy si N<8
     if (N < 8) {
@@ -115,6 +147,11 @@ int main(int argc, char *argv[]) {
 
     if (rank == 0) {
         printf("Nombre de couples sexy <= %lld : %lld\n", N, global_count);
+    }
+
+    if (rank == 0) {
+    double end_time = MPI_Wtime();
+    printf("Temps d'exécution : %f secondes\n", end_time - start_time);
     }
 
     MPI_Finalize();
