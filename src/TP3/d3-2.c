@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
     MPI_Win_free(&win_tasks);
     MPI_Win_free(&win_index);
     MPI_Win_free(&win_results);
-
+ 
     MPI_Finalize();
     return 0;
 }
