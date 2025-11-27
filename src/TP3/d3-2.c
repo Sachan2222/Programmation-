@@ -121,9 +121,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (rank != 0) {
-        MPI_Put(&local_count, 1, MPI_LONG_LONG, 0, rank, 1, MPI_LONG_LONG, win_results);
-    }
+    MPI_Put(&local_count, 1, MPI_LONG_LONG, 0, rank, 1, MPI_LONG_LONG, win_results);
+
 
     MPI_Win_fence(0, win_results);
 
