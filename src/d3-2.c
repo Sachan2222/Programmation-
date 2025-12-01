@@ -110,8 +110,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Récupération de la valeure finale
-    long long global_count = 0;
+e    long long global_count = 0;
     MPI_Reduce(&local_count, &global_count, 1, MPI_LONG_LONG,
                 MPI_SUM, 0, MPI_COMM_WORLD);
 
